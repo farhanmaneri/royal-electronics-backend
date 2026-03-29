@@ -32,10 +32,21 @@ app.use("/api/sales", saleRoutes);
 app.use("/api/purchases", purchaseRoutes);
 
 // DB Connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected"))
-  .catch((err) => console.log(err));
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected) return;
+
+  try {
+    const db = await mongoose.connect(process.env.MONGO_URI);
+    isConnected = db.connections[0].readyState;
+    console.log("MongoDB Connected ✅");
+  } catch (error) {
+    console.log("Mongo Error ❌", error.message);
+  }
+};
+
+connectDB();
 
 /*
 ========================================
