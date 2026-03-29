@@ -24,6 +24,9 @@ app.use(
 app.use(express.json());
 
 // Routes
+app.get("/", (req, res) => {
+  res.send("API is running successfully 🚀");
+});
 app.use("/api/products", productRoutes);
 app.use("/api/sales", saleRoutes);
 app.use("/api/purchases", purchaseRoutes);
