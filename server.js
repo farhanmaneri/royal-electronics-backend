@@ -1,31 +1,53 @@
 import express from "express";
-import dotenv from "dotenv";
+import mongoose from "mongoose";
 import cors from "cors";
-import connectDB from "./config/db.js";
-import saleRoutes from "./routes/saleRoutes.js";
+import dotenv from "dotenv";
+
 import productRoutes from "./routes/productRoutes.js";
+import saleRoutes from "./routes/saleRoutes.js";
 import purchaseRoutes from "./routes/purchaseRoutes.js";
 
 dotenv.config();
-connectDB();
 
 const app = express();
 
-// Middleware
+// Middlewares
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://royal-electronics-frontend.vercel.app",
+    ],
+    credentials: true,
+  }),
+);
 app.use(express.json());
-app.use(cors());
 
-// Test Route
-
+// Routes
 app.use("/api/products", productRoutes);
-app.use("/api/purchases", purchaseRoutes);
 app.use("/api/sales", saleRoutes);
-app.get("/", (req, res) => {
-  res.send("API Running...");
-});
+app.use("/api/purchases", purchaseRoutes);
 
-const PORT = process.env.PORT || 5000;
+// DB Connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log(err));
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+/*
+========================================
+✅ CONDITION FOR LOCAL vs VERCEL
+========================================
+*/
+
+// 👉 If NOT running on Vercel → start server
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// 👉 Always export for Vercel
+export default app;
