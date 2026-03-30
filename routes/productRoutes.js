@@ -1,5 +1,5 @@
 import express from "express";
-import { createProduct, deleteProduct, updateProduct } from "../controllers/productController.js";
+import { createProduct, deleteProduct, getProducts, updateProduct } from "../controllers/productController.js";
 import Product from "../models/Product.js";
 
 const router = express.Router();
@@ -8,18 +8,11 @@ const router = express.Router();
 router.post("/", createProduct);
 
 // ✅ GET ALL PRODUCTS (IMPORTANT)
-router.get("/", async (req, res) => {
-  try {
-    const products = await Product.find();
-    res.json(products);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+router.get("/", getProducts);
 
 
 router.put("/:id", updateProduct); // ✅ stock & price
 router.delete("/:id", deleteProduct);
 
-});
 
 export default router;

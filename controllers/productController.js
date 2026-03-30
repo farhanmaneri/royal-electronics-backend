@@ -10,6 +10,14 @@ export const createProduct = async (req, res) => {
   }
   console.log(req.body);
 };
+// Get products
+ export const getProducts = async(req,res) =>{
+  try{
+    const products = await Product.find();
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }}
 // Delete product
 export const deleteProduct = async (req, res) => {
   try {

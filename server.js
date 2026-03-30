@@ -23,45 +23,78 @@ app.use(
 );
 app.use(express.json());
 
-// Routes
+// ========================================
+// ✅ DB CONNECTION (cached for Vercel)
+// ========================================
+
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected) {
+    console.log("Using existing MongoDB connection ♻️");
+    return;
+  }
+
+  try {
+    const db = await mongoose.connect(process.env.MONGO_URI, {
+      bufferCommands: false, // ✅ prevents buffering timeout error
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    });
+
+    isConnected = db.connections[0].readyState === 1;
+    console.log("MongoDB Connected ✅");
+  } catch (error) {
+    console.log("Mongo Error ❌", error.message);
+    throw error; // ✅ let the route return 500 instead of hanging
+  }
+};
+
+// ========================================
+// ✅ MIDDLEWARE — connect DB before routes
+// ========================================
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    res.status(500).json({ message: "Database connection failed ❌" });
+  }
+});
+
+// ========================================
+// ✅ ROUTES
+// ========================================
+
 app.get("/", (req, res) => {
   res.send("API is running successfully 🚀");
 });
+
 app.use("/api/products", productRoutes);
 app.use("/api/sales", saleRoutes);
 app.use("/api/purchases", purchaseRoutes);
 
-// DB Connection
-let isConnected = false;
+// ========================================
+// ✅ CONDITION FOR LOCAL vs VERCEL
+// ========================================
 
-const connectDB = async () => {
-  if (isConnected) return;
-
-  try {
-    const db = await mongoose.connect(process.env.MONGO_URI);
-    isConnected = db.connections[0].readyState;
-    console.log("MongoDB Connected ✅");
-  } catch (error) {
-    console.log("Mongo Error ❌", error.message);
-  }
-};
-
-connectDB();
-
-/*
-========================================
-✅ CONDITION FOR LOCAL vs VERCEL
-========================================
-*/
-
-// 👉 If NOT running on Vercel → start server
 if (!process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
 
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  // ✅ Connect DB first, then start server
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.log("Failed to connect DB, server not started ❌", error.message);
+    });
+} else {
+  // Vercel — DB connects on first request via middleware
+  connectDB();
 }
 
-// 👉 Always export for Vercel
 export default app;
