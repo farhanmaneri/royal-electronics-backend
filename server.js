@@ -97,4 +97,8 @@ if (!process.env.VERCEL) {
   connectDB();
 }
 
+// ✅ Warm up DB connection immediately on Vercel cold start
+if (process.env.VERCEL) {
+  connectDB();
+}
 export default app;
