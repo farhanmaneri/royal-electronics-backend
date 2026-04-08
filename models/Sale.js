@@ -16,20 +16,31 @@ const saleSchema = new mongoose.Schema(
 
     items: [
       {
-        name: String, // Product name (easy for printing)
+        name: String,
         product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
         },
         quantity: Number,
-        unitType: {
-          type: String, // "Nos" or "Meter"
-        },
+        unitType: String,
         price: Number,
       },
     ],
 
+    // ✅ Subtotal (before discount)
     totalAmount: {
+      type: Number,
+      required: true,
+    },
+
+    // ✅ NEW: Discount
+    discount: {
+      type: Number,
+      default: 0,
+    },
+
+    // ✅ NEW: Final Total
+    finalAmount: {
       type: Number,
       required: true,
     },

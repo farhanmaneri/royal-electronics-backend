@@ -4,13 +4,15 @@ import Product from "../models/Product.js";
 // ✅ CREATE SALE
 export const createSale = async (req, res) => {
   try {
-    const { customer, items, totalAmount } = req.body;
+    const { customer, items, discount = 0 } = req.body;
 
-    if (!customer || !items || items.length === 0) {
-      return res.status(400).json({ message: "Invalid data" });
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: "Items are required" });
     }
 
-    // 🔥 Update stock
+    // ✅ Calculate subtotal from backend (SAFE)
+    let subtotal = 0;
+
     for (let item of items) {
       const product = await Product.findById(item.product);
 
@@ -24,10 +26,18 @@ export const createSale = async (req, res) => {
         });
       }
 
+      // ✅ Add to subtotal
+      subtotal += item.quantity * item.price;
+
+      // ✅ Update stock
       product.stock -= item.quantity;
       await product.save();
     }
 
+    // ✅ Final amount after discount
+    const finalAmount = subtotal - discount;
+
+    // ✅ Invoice Number
     const lastSale = await Sale.findOne().sort({ createdAt: -1 });
     let invoiceNumber = "INV-001";
 
@@ -36,51 +46,119 @@ export const createSale = async (req, res) => {
       invoiceNumber = `INV-${String(lastNumber + 1).padStart(3, "0")}`;
     }
 
+    // ✅ Save Sale
     const sale = await Sale.create({
-      customer,
+      customer: customer || "Walk-in Customer",
       items,
-      totalAmount,
+      totalAmount: subtotal,
+      discount,
+      finalAmount,
       invoiceNumber,
     });
 
     res.status(201).json(sale);
   } catch (error) {
+    console.error("SALE ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// ✅ GET SALES (with search by date or invoice number)
+// ✅ GET SALES
 export const getSales = async (req, res) => {
   try {
     const { invoice, startDate, endDate } = req.query;
 
-    // Build filter object
     let filter = {};
 
-    // 🔍 Search by invoice number
+    // 🔍 Invoice search
     if (invoice) {
       filter.invoiceNumber = { $regex: invoice, $options: "i" };
     }
 
-    // 📅 Search by date range
+    // 📅 Date filter
     if (startDate || endDate) {
       filter.createdAt = {};
+
       if (startDate) {
-        filter.createdAt.$gte = new Date(startDate); // from this date
+        filter.createdAt.$gte = new Date(startDate);
       }
+
       if (endDate) {
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999); // include full end day
+        end.setHours(23, 59, 59, 999);
         filter.createdAt.$lte = end;
       }
     }
 
     const sales = await Sale.find(filter)
-      .populate("items.product", "name price unitType") // get product details
-      .sort({ createdAt: -1 }); // newest first
+      .populate("items.product", "name price unitType")
+      .sort({ createdAt: -1 });
 
     res.status(200).json(sales);
   } catch (error) {
+    console.error("GET SALES ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+  
+};
+// ✅ UPDATE SALE
+export const updateSale = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { customer, items, discount = 0 } = req.body;
+
+    const existingSale = await Sale.findById(id);
+    if (!existingSale) {
+      return res.status(404).json({ message: "Sale not found" });
+    }
+
+    // ✅ Restore old stock first
+    for (let oldItem of existingSale.items) {
+      const product = await Product.findById(oldItem.product);
+      if (product) {
+        product.stock += oldItem.quantity; // give back old stock
+        await product.save();
+      }
+    }
+
+    // ✅ Deduct new stock
+    let subtotal = 0;
+    for (let item of items) {
+      const product = await Product.findById(item.product);
+
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      if (product.stock < item.quantity) {
+        return res.status(400).json({
+          message: `Not enough stock for ${product.name}`,
+        });
+      }
+
+      subtotal += item.quantity * item.price;
+      product.stock -= item.quantity;
+      await product.save();
+    }
+
+    const finalAmount = subtotal - discount;
+
+    // ✅ Update sale — keep same invoice number
+    const updatedSale = await Sale.findByIdAndUpdate(
+      id,
+      {
+        customer: customer || "Walk-in Customer",
+        items,
+        totalAmount: subtotal,
+        discount,
+        finalAmount,
+      },
+      { new: true } // return updated document
+    );
+
+    res.status(200).json(updatedSale);
+  } catch (error) {
+    console.error("UPDATE SALE ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };
