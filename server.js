@@ -66,7 +66,9 @@ app.use(async (req, res, next) => {
 // ========================================
 // ✅ ROUTES
 // ========================================
-
+app.get("/ping", (req, res) => {
+  res.status(200).json({ message: "pong 🏓" });
+});
 app.get("/", (req, res) => {
   res.send("API is running successfully 🚀");
 });
